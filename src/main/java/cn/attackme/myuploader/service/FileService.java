@@ -62,7 +62,7 @@ public class FileService {
         if (isUploaded(md5)) {
             removeKey(md5);
             fileDao.save(new File(name, md5,UploadConfig.path + fileName + fileExtension, new Date()));
-            if (!fileExtension.isEmpty() && (fileExtension.equals(".csv") || fileExtension.equals(".xls") || fileExtension.equals(".xlsx"))) {
+            if ((fileExtension.equals(".csv"))) {
                 try {
                     String csvFilePath = UploadConfig.path + fileName + fileExtension;
                     sqlService.importCSVToDatabase(csvFilePath);
