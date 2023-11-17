@@ -13,3 +13,5 @@ mybatis:
   type-aliases-package: cn.attackme.myuploader.model
 upload:
   path: ./upload/
+server:
+  port: 8081
