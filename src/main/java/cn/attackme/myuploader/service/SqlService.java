@@ -5,6 +5,7 @@ import com.opencsv.CSVReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.io.*;
@@ -47,10 +48,12 @@ public class SqlService {
             List<String[]> rows = csvReader.readAll();
 
             try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword)) {
+                connection.setAutoCommit(false);
                 String tableName = extractTableName(csvFilePath);
                 createTable(connection, tableName, tableHeaders, rows);
                 String insertQuery = generateInsertQuery(tableName, tableHeaders);
                 insertData(connection, insertQuery, tableHeaders, rows);
+                connection.commit();
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse CSV file.", e);
@@ -78,7 +81,10 @@ public class SqlService {
     }
 
     private String generateInsertQuery(String tableName, List<String> tableHeaders) {
-        String columns = String.join(", ", tableHeaders);
+        List<String> escapedColumns = tableHeaders.stream()
+                .map(column -> String.format("`%s`", column))
+                .collect(Collectors.toList());
+        String columns = String.join(", ", escapedColumns);
         String placeholders = tableHeaders.stream().map(header -> "?").collect(Collectors.joining(", "));
         return String.format("INSERT INTO `%s` (%s) VALUES (%s)", tableName, columns, placeholders);
     }
