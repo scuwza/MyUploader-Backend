@@ -1,9 +1,9 @@
 spring:
   datasource:
     username: root
-    password: root
-    url: jdbc:mysql:///MyUploader?useUnicode=true&characterEncoding=utf-8&serverTimeZone=UTC&useSSL=false
-    driver-class-name: com.mysql.jdbc.Driver
+    password: 123456
+    url: jdbc:mysql:///MyUploader?useUnicode=true&characterEncoding=utf-8&serverTimezone=Hongkong&useSSL=false
+    driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
     multipart:
       max-file-size: 10000MB
