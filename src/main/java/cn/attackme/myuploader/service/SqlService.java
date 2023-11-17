@@ -3,11 +3,9 @@ package cn.attackme.myuploader.service;
 import cn.attackme.myuploader.config.DatabaseConfig;
 import com.opencsv.CSVReader;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -19,24 +17,32 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-
+/**
+ * Service class for importing CSV data into a database.
+ */
 @Service
 public class SqlService {
     @Autowired
     private DatabaseConfig databaseConfig;
 
-    // 直接使用配置类中的属性值
+    // Directly use property values from the configuration class
     private String jdbcUrl = databaseConfig.jdbcUrl;
     private String jdbcUser = databaseConfig.jdbcUser;
     private String jdbcPassword = databaseConfig.jdbcPassword;
 
+    /**
+     * Imports data from a CSV file into the database.
+     *
+     * @param csvFilePath Path to the CSV file.
+     * @throws IOException  If an I/O error occurs.
+     * @throws SQLException If a SQL error occurs.
+     */
+    @Transactional
     public void importCSVToDatabase(String csvFilePath) throws IOException, SQLException {
         try (CSVReader csvReader = new CSVReader(new InputStreamReader(Files.newInputStream(Paths.get(csvFilePath)), StandardCharsets.UTF_8))) {
             String[] columnNames = csvReader.readNext();
@@ -60,6 +66,14 @@ public class SqlService {
         }
     }
 
+    /**
+     * Inserts data into the database using batch processing.
+     *
+     * @param connection   The database connection.
+     * @param insertQuery  The SQL query for inserting data.
+     * @param tableHeaders The headers of the CSV file.
+     * @param rows         The rows of data to be inserted.
+     */
     private void insertData(Connection connection, String insertQuery, List<String> tableHeaders, List<String[]> rows) {
         int batchCount = 0;
         try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
@@ -74,12 +88,19 @@ public class SqlService {
                     statement.executeBatch();
                 }
             }
-            statement.executeBatch(); // 处理剩余的数据
+            statement.executeBatch(); // Process remaining data
         } catch (SQLException e) {
             throw new RuntimeException("Failed to insert data into the database.", e);
         }
     }
 
+    /**
+     * Generates the SQL query for inserting data into the database.
+     *
+     * @param tableName    The name of the database table.
+     * @param tableHeaders The headers of the CSV file.
+     * @return The SQL insert query.
+     */
     private String generateInsertQuery(String tableName, List<String> tableHeaders) {
         List<String> escapedColumns = tableHeaders.stream()
                 .map(column -> String.format("`%s`", column))
@@ -89,6 +110,15 @@ public class SqlService {
         return String.format("INSERT INTO `%s` (%s) VALUES (%s)", tableName, columns, placeholders);
     }
 
+    /**
+     * Creates a database table based on CSV file headers and data types.
+     *
+     * @param connection   The database connection.
+     * @param tableName    The name of the database table.
+     * @param tableHeaders The headers of the CSV file.
+     * @param rows         The rows of data in the CSV file.
+     * @throws SQLException If a SQL error occurs.
+     */
     private void createTable(Connection connection, String tableName, List<String> tableHeaders, List<String[]> rows)
             throws SQLException {
         StringBuilder createTableQuery = new StringBuilder();
@@ -112,6 +142,14 @@ public class SqlService {
         }
     }
 
+    /**
+     * Determines the data type of a column based on the data in the CSV file.
+     *
+     * @param columnName   The name of the column.
+     * @param rows         The rows of data in the CSV file.
+     * @param tableHeaders The headers of the CSV file.
+     * @return The SQL data type.
+     */
     private String determineColumnType(String columnName, List<String[]> rows, List<String> tableHeaders) {
         boolean isInt = isColumnType(rows, tableHeaders.indexOf(columnName), this::isInteger);
         boolean isDouble = isColumnType(rows, tableHeaders.indexOf(columnName), this::isDouble);
@@ -128,6 +166,14 @@ public class SqlService {
         }
     }
 
+    /**
+     * Checks if a column contains only values of a specific type.
+     *
+     * @param rows         The rows of data in the CSV file.
+     * @param columnIndex  The index of the column.
+     * @param typeChecker  A predicate that checks if a value is of the desired type.
+     * @return True if all values in the column are of the specified type, false otherwise.
+     */
     private boolean isColumnType(List<String[]> rows, int columnIndex, Predicate<String> typeChecker) {
         for (String[] row : rows) {
             String data = row[columnIndex];
@@ -138,6 +184,13 @@ public class SqlService {
         return true;
     }
 
+
+    /**
+     * Checks if a column contains only integer values.
+     *
+     * @param data The data in the column.
+     * @return True if all values are integers, false otherwise.
+     */
     private boolean isInteger(String data) {
         try {
             Integer.parseInt(data);
@@ -147,6 +200,12 @@ public class SqlService {
         }
     }
 
+    /**
+     * Checks if a column contains only double values.
+     *
+     * @param data The data in the column.
+     * @return True if all values are doubles, false otherwise.
+     */
     private boolean isDouble(String data) {
         try {
             Double.parseDouble(data);
@@ -156,6 +215,12 @@ public class SqlService {
         }
     }
 
+    /**
+     * Checks if a column contains only date values in the "yyyy-MM-dd" format.
+     *
+     * @param data The data in the column.
+     * @return True if all values are dates, false otherwise.
+     */
     private boolean isDate(String data) {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         try {
@@ -166,6 +231,12 @@ public class SqlService {
         }
     }
 
+    /**
+     * Extracts the table name from the CSV file path.
+     *
+     * @param csvFilePath The path to the CSV file.
+     * @return The table name.
+     */
     private String extractTableName(String csvFilePath) {
         File file = new File(csvFilePath);
         String fileName = file.getName();
@@ -173,4 +244,3 @@ public class SqlService {
         return (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
     }
 }
-
