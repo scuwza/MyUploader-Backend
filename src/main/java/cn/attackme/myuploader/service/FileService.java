@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Date;
 
 import static cn.attackme.myuploader.utils.FileUtils.generateFileName;
@@ -21,6 +22,8 @@ import static cn.attackme.myuploader.utils.UploadUtils.*;
 public class FileService {
     @Autowired
     private FileDao fileDao;
+    @Autowired
+    private SqlService sqlService;
 
 
     /**
@@ -51,14 +54,33 @@ public class FileService {
                                 Integer chunks,
                                 Integer chunk,
                                 MultipartFile file) throws IOException {
+        // 获取文件后缀
+        String fileExtension = getFileExtension(name);
         String fileName = getFileName(md5, chunks);
-        FileUtils.writeWithBlok(UploadConfig.path + fileName, size, file.getInputStream(), file.getSize(), chunks, chunk);
+        FileUtils.writeWithBlok(UploadConfig.path + fileName + fileExtension, size, file.getInputStream(), file.getSize(), chunks, chunk);
         addChunk(md5,chunk);
         if (isUploaded(md5)) {
             removeKey(md5);
-            fileDao.save(new File(name, md5,UploadConfig.path + fileName, new Date()));
+            fileDao.save(new File(name, md5,UploadConfig.path + fileName + fileExtension, new Date()));
+            if (!fileExtension.isEmpty() && (fileExtension.equals(".csv") || fileExtension.equals(".xls") || fileExtension.equals(".xlsx"))) {
+                try {
+                    String csvFilePath = UploadConfig.path + fileName + fileExtension;
+                    sqlService.importCSVToDatabase(csvFilePath);
+                } catch (IOException | SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
+
+    private static String getFileExtension(String fileName) {
+        int lastDotIndex = fileName.lastIndexOf(".");
+        if (lastDotIndex != -1) {
+            return fileName.substring(lastDotIndex);
+        }
+        return "";
+    }
+
 
     /**
      * 检查Md5判断文件是否已上传

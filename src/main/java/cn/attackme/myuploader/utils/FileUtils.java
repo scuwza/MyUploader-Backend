@@ -49,6 +49,8 @@ public class FileUtils {
         while (-1 != (len = src.read(buf))) {
             randomAccessFile.write(buf,0,len);
         }
+        // 释放流,避免内存溢出
+        src.close();
         randomAccessFile.close();
     }
 

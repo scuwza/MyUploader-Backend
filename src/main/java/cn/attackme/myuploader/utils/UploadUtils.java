@@ -20,6 +20,11 @@ public class UploadUtils {
             this.name = generateFileName();
             this.status = new boolean[n];
         }
+
+        Value(String key, int chunks) {
+            this.name = key;
+            this.status = new boolean[chunks];
+        }
     }
 
     private static Map<String, Value> chunkMap = new HashMap<>();
